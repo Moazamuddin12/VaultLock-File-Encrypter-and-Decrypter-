@@ -1,0 +1,108 @@
+# VaultLock
+
+Local-first file encryption with a desktop UI. Lock files and folders into authenticated `.vault` containers, unlock them, peek inside without writing anything to disk, and shred the originals once the vault has been proven good.
+
+Nothing leaves your computer. There is no account, no cloud, and no telemetry.
+
+## What it does
+
+| | |
+|---|---|
+| **Cipher** | AES-256-GCM or ChaCha20-Poly1305, chosen per vault |
+| **Key derivation** | Argon2id (64 MiB / 256 MiB / 1 GiB profiles) or PBKDF2-HMAC-SHA256 (1M iterations); fresh 32-byte salt per vault |
+| **Second factor** | optional keyfile, bound into the key with an HMAC so password guesses can't be tested without it |
+| **Streaming** | 1 MiB authenticated chunks. A 2 GiB file peaks at under 100 MiB of RAM |
+| **Integrity** | tampering, truncation, reordering and appended data are all detected before plaintext is released |
+| **Folders** | a whole directory (or a mixed selection) becomes one vault, streamed straight into the encryptor with no plaintext temp file |
+| **Secure viewer** | preview images, PDFs, audio, video and text decrypted in RAM only |
+| **Shredder** | 1, 3 (DoD 5220.22-M style) or 7 overwrite passes. Runs only after the new vault is re-read and every block authenticates |
+| **Password tools** | pattern-aware strength meter (dictionary, leetspeak, keyboard walks, dates), passphrase and password generator |
+| **Interface** | desktop window (PyWebView) or any browser; drag and drop, live progress with speed and ETA, sounds and haptics (optional), five accent themes |
+| **CLI** | the same engine for scripts |
+
+Measured on a 2-core cloud VM: AES-256-GCM 355 MB/s encrypt, 454 MB/s decrypt; ChaCha20-Poly1305 450 / 480 MB/s. The default profile takes about 0.8 s to derive a key.
+
+## Quick start
+
+You need **Python 3.11 or newer** from [python.org](https://www.python.org/downloads/) (on Windows tick *Add python.exe to PATH* in the installer).
+
+**Windows: double-click `start_vaultlock.bat`.** The first run builds a private environment and installs everything (about a minute); later runs start instantly. It repairs a broken `.venv` by itself.
+
+**macOS / Linux:** `sh start_vaultlock.sh`
+
+Your browser opens on VaultLock. Keep the terminal window open while you use it; close it (or press Ctrl+C) to quit.
+
+### In VS Code
+
+1. *File > Open Folder...* and choose the `VaultLock` folder (the one containing `pyproject.toml`).
+2. Open a terminal (*Terminal > New Terminal*) and run the launcher: `.\start_vaultlock.bat` on Windows, `sh start_vaultlock.sh` on macOS/Linux. Or press **Ctrl+Shift+B** to run the "Start VaultLock" task.
+3. For debugging, run the launcher once first, then pick the interpreter (*Ctrl+Shift+P > Python: Select Interpreter > .venv*), open *Run and Debug* (Ctrl+Shift+D) and press **F5** on "VaultLock (open in browser)".
+
+### By hand (any OS)
+
+```bash
+python -m venv .venv
+# Windows (cmd or PowerShell), no activation needed:
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m vaultlock gui
+# macOS / Linux:
+.venv/bin/python -m pip install -e .
+.venv/bin/python -m vaultlock gui
+```
+
+`gui` opens your browser. An experimental native window is available with `pip install pywebview` and `vaultlock gui --native`.
+
+### Troubleshooting
+
+* **`.venv` contains `bin` and `lib` but no `Scripts` folder (Windows).** The `python` on your PATH is not the official Windows build (MSYS2, Cygwin or Git Bash Pythons do this). Delete `.venv`, install Python from python.org, and run `start_vaultlock.bat`; it prefers the official `py` launcher.
+* **PowerShell: `.venv\Scripts\Activate.ps1` is not recognised / scripts are disabled.** You don't need to activate anything. Use `start_vaultlock.bat`, or call `.\.venv\Scripts\python.exe` directly as above. PowerShell needs the leading `.\`, and paths with spaces need quotes: `cd "C:\My Folder\VaultLock"`.
+* **`python` opens the Microsoft Store.** That is a placeholder, not Python. Install from python.org.
+* **"Not enough memory" while locking.** Open Settings and choose the *Standard* security profile.
+
+### Command line
+
+```bash
+vaultlock keygen ~/secrets/main.key                      # optional second factor
+vaultlock lock  ~/Documents/taxes -o ~/Vaults --keyfile ~/secrets/main.key --verify
+vaultlock lock  a.pdf b.mp4 --bundle "Trip 2026" --shred --passes 3
+vaultlock inspect ~/Vaults/taxes.vault                   # header only, no password
+vaultlock verify  ~/Vaults/taxes.vault --keyfile ~/secrets/main.key
+vaultlock unlock  ~/Vaults/taxes.vault --keyfile ~/secrets/main.key -o ~/Documents
+vaultlock rekey ~/Vaults/taxes.vault --replace           # change password / keyfile / cipher, no plaintext on disk
+vaultlock passgen --words 6
+```
+
+Passwords are read from a hidden prompt, or from `VAULTLOCK_PASSWORD` for automation. They are never accepted as command-line arguments, which would leak into shell history and process lists.
+
+## How it is built
+
+```
+vaultlock/
+  core/       the cryptography: format, streaming AEAD, KDF, keyfile, archive, engine, memory hygiene
+  services/   shredder, strength meter, job runner, file browser, upload staging
+  server/     localhost-only Flask API (token, Host/Origin checks, strict CSP)
+  web/        the UI: HTML, CSS, vanilla JS, inline SVG icons (no CDN, works offline)
+  desktop.py  PyWebView shell        cli.py  command line
+docs/         FORMAT.md (byte-level spec)   SECURITY.md (threat model and limits)
+tests/        pytest suite (104 tests) covering tamper detection, hostile archives, jobs, API, CLI and a headless-browser end-to-end run
+```
+
+Read `docs/FORMAT.md` for the container specification and `docs/SECURITY.md` for what VaultLock does and does not protect against. Short version: it protects stolen or leaked vaults from anyone without your password (and keyfile); it cannot protect you from malware on the machine you type your password into, and secure deletion on SSDs and synced folders is best effort.
+
+## Things worth knowing
+
+* **There is no recovery.** Forget the password or lose the keyfile and the data is gone. Back the keyfile up offline.
+* **Folders in a browser window.** Browsers can't hand over a dropped folder's path, so with `--browser` use *Add folder*. The native window and the in-app file browser handle folders directly.
+* **Drag and drop in a browser** uploads the file to a private staging area that is shredded when the job ends; the original is never shredded in that case because VaultLock doesn't know where it lives.
+* **Settings** are stored in your user config directory (`VAULTLOCK_HOME` overrides it). They never contain passwords or keys.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+python -m pytest -q
+```
+
+## License
+
+MIT. The ranked word lists used by the strength meter are derived from the MIT-licensed zxcvbn project; see `vaultlock/services/data/LICENSE-zxcvbn-wordlists.txt`.

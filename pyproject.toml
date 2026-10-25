@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vaultlock"
+version = "1.0.0"
+description = "Local-first, streaming, authenticated file encryption with a glassmorphism desktop UI."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["encryption", "aes-gcm", "chacha20-poly1305", "argon2", "privacy", "pywebview"]
+dependencies = ["cryptography>=45", "flask>=3.0", "argon2-cffi>=23"]  # argon2-cffi: fallback if OpenSSL lacks Argon2id
+
+[project.optional-dependencies]
+desktop = ["pywebview>=5.0"]
+dev = ["pytest>=8", "playwright>=1.45"]
+
+[project.scripts]
+vaultlock = "vaultlock.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["vaultlock*"]
+
+[tool.setuptools.package-data]
+vaultlock = ["web/**/*", "services/data/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

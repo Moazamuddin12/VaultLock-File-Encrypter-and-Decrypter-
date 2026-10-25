@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en" data-accent="cyan">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="vl-token" content="__VL_TOKEN__">
+<meta name="vl-native" content="__VL_NATIVE__">
+<title>VaultLock</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="top">
+  <div class="brand"><span class="logo" data-icon="shield-lock"></span><b>VaultLock</b><small>v__VL_VERSION__</small></div>
+  <nav class="modes" role="tablist" aria-label="Mode">
+    <button role="tab" data-mode="lock" class="on"><span data-icon="lock"></span>Lock</button>
+    <button role="tab" data-mode="unlock"><span data-icon="unlock"></span>Unlock</button>
+    <button role="tab" data-mode="shred"><span data-icon="flame"></span>Shred</button>
+    <i class="slider" aria-hidden="true"></i>
+  </nav>
+  <div class="tools">
+    <button class="icon-btn" id="btnClear" title="Clear passwords, previews and staged files now"><span data-icon="eraser"></span></button>
+    <button class="icon-btn" id="btnSettings" title="Settings"><span data-icon="sliders"></span></button>
+  </div>
+</header>
+
+<main class="stage" id="stage">
+  <section class="left">
+    <div class="dial-wrap">
+      <div class="dial" id="dial" tabindex="0" role="button" aria-label="Drop files here or press Enter to browse">
+        <svg viewBox="0 0 320 320" class="dial-svg" aria-hidden="true">
+          <g class="ticks" id="ticks"></g>
+          <circle class="track" cx="160" cy="160" r="128"/>
+          <circle class="arc" id="arc" cx="160" cy="160" r="128" pathLength="100"/>
+        </svg>
+        <div class="dial-core" id="dialCore">
+          <span class="dial-icon" id="dialIcon" data-icon="lock"></span>
+          <strong id="dialTitle">Drop files to lock</strong>
+          <span id="dialSub">or click to browse</span>
+        </div>
+      </div>
+      <div class="live" id="live" hidden>
+        <div><b id="liveSpeed">0 MB/s</b><span>speed</span></div>
+        <div><b id="liveEta">--</b><span>remaining</span></div>
+        <div><b id="livePhase">--</b><span>stage</span></div>
+        <button class="ghost danger" id="btnCancel"><span data-icon="x"></span>Cancel</button>
+      </div>
+    </div>
+
+    <div class="adders" id="adders">
+      <button class="ghost" id="addFiles"><span data-icon="file-plus"></span>Add files</button>
+      <button class="ghost" id="addFolder"><span data-icon="folder-plus"></span>Add folder</button>
+      <button class="ghost" id="clearList"><span data-icon="trash"></span>Remove all</button>
+    </div>
+
+    <ul class="files" id="files" aria-live="polite"></ul>
+    <p class="empty" id="empty">Nothing here yet. Drop files or folders onto the dial.</p>
+  </section>
+
+  <aside class="right">
+    <div class="panel glass" id="credPanel">
+      <h2>Unlock with</h2>
+      <label class="field">
+        <span>Password</span>
+        <div class="pw">
+          <input type="password" id="pw" autocomplete="off" spellcheck="false" placeholder="Enter your password">
+          <button class="icon-btn sm" id="togglePw" type="button" title="Show or hide" data-icon="eye"></button>
+          <button class="icon-btn sm" id="genPw" type="button" title="Generate a strong passphrase" data-icon="wand"></button>
+        </div>
+      </label>
+      <div id="strengthBox">
+        <div class="meter" id="meter"><i></i><i></i><i></i><i></i></div>
+        <div class="meter-text"><b id="strLabel">Type a password</b><span id="strCrack"></span></div>
+        <p class="hint" id="strHint"></p>
+      </div>
+      <label class="field" id="pw2Field">
+        <span>Repeat password</span>
+        <input type="password" id="pw2" autocomplete="off" spellcheck="false" placeholder="Type it again">
+      </label>
+
+      <div class="keyrow">
+        <label class="switch"><input type="checkbox" id="useKey"><i></i><span>Require a keyfile too</span></label>
+        <div class="keybox" id="keyBox" hidden>
+          <div class="keyname" id="keyName">No keyfile chosen</div>
+          <div class="keybtns">
+            <button class="ghost sm" id="pickKey"><span data-icon="key"></span>Choose</button>
+            <button class="ghost sm" id="makeKey"><span data-icon="sparkles"></span>Create new</button>
+          </div>
+          <p class="hint">A keyfile is a second lock. Lose it and the vault can never be opened. Keep a copy offline.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel glass" id="optPanel">
+      <h2>Options</h2>
+      <div class="opts" id="opts">
+        <label class="switch" data-for="lock"><input type="checkbox" id="oBundle"><i></i><span>Combine everything into one vault</span></label>
+        <label class="switch" data-for="lock"><input type="checkbox" id="oVerify" checked><i></i><span>Check the vault after writing</span></label>
+        <label class="switch" data-for="lock"><input type="checkbox" id="oShred"><i></i><span>Shred the originals afterwards</span></label>
+        <p class="hint warn" id="shredNote" hidden>Originals are only shredded after the new vault is fully re-read and verified. On SSDs and synced folders, overwriting can't guarantee the data is gone.</p>
+        <label class="switch" data-for="unlock"><input type="checkbox" id="oRemove"><i></i><span>Delete the vault after unlocking</span></label>
+        <div class="seg" data-for="shred" id="passSeg">
+          <span>Overwrite passes</span>
+          <div><button data-p="1">1</button><button data-p="3" class="on">3</button><button data-p="7">7</button></div>
+        </div>
+        <label class="field" data-for="lock unlock" id="outField">
+          <span>Save to</span>
+          <div class="outrow"><div class="outname" id="outName">Next to the original</div>
+            <button class="ghost sm" id="pickOut"><span data-icon="folder"></span>Change</button></div>
+        </label>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <button class="go" id="go"><span data-icon="lock"></span><b id="goText">Lock</b></button>
+    <p class="error" id="formError" role="alert" hidden></p>
+  </aside>
+</main>
+
+<div class="drop-veil" id="veil" hidden><div><span data-icon="download"></span>Drop to add</div></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="modalRoot"></div>
+
+<script src="/static/js/icons.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
